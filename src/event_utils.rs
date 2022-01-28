@@ -5,15 +5,15 @@ use clarity::{
     abi::{derive_signature, SerializedToken, Token},
     utils::bytes_to_hex_str,
 };
-use clarity::{Address, Uint256};
+use clarity::{Address, U256};
 use std::time::{Duration, Instant};
 use tokio::time::sleep as delay_for;
 
 /// takes an address and spits out an event, There's some argument to
 /// not use [u8; 32] for event definitions because of how much trouble
-/// this is but mostly you watch for addresses, Uint256 values and byte arrays
+/// this is but mostly you watch for addresses, U256 values and byte arrays
 /// the last is best represented by this and the first is easily provided by this
-/// function. Uint256 has a get_bytes function but you do need to check the length
+/// function. U256 has a get_bytes function but you do need to check the length
 pub fn address_to_event(address: Address) -> [u8; 32] {
     let token = Token::Address(address);
     match token.serialize() {
@@ -110,7 +110,7 @@ impl Web3 {
         let mut found_log = None;
         while Instant::now() - start < wait_for {
             delay_for(Duration::from_secs(1)).await;
-            let logs = match self.eth_get_filter_changes(filter_id.clone()).await {
+            let logs = match self.eth_get_filter_changes(filter_id).await {
                 Ok(changes) => changes,
                 Err(e) => return Err(e),
             };
@@ -136,8 +136,8 @@ impl Web3 {
     /// the latest will be used. This function will not wait for events to occur.
     pub async fn check_for_events(
         &self,
-        start_block: Uint256,
-        end_block: Option<Uint256>,
+        start_block: U256,
+        end_block: Option<U256>,
         contract_address: Vec<Address>,
         events: Vec<&str>,
     ) -> Result<Vec<Log>, Web3Error> {
@@ -171,8 +171,8 @@ impl Web3 {
     /// the latest will be used. This function will not wait for events to occur
     pub async fn check_for_arbitrary_events(
         &self,
-        start_block: Uint256,
-        end_block: Option<Uint256>,
+        start_block: U256,
+        end_block: Option<U256>,
         contract_address: Vec<Address>,
         topics: Vec<Vec<[u8; 32]>>,
     ) -> Result<Vec<Log>, Web3Error> {

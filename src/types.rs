@@ -1,8 +1,7 @@
 use clarity::utils::{bytes_to_hex_str, hex_str_to_bytes};
 use clarity::Address;
-use num256::Uint256;
+use clarity::U256;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::str::FromStr;
 use std::{cmp::Ordering, ops::Deref};
 
 /// Serializes slice of data as "UNFORMATTED DATA" format required
@@ -34,10 +33,10 @@ pub struct Log {
     pub removed: Option<bool>,
     /// integer of the log index position in the block. null when its pending log.
     #[serde(rename = "logIndex")]
-    pub log_index: Option<Uint256>,
+    pub log_index: Option<U256>,
     /// integer of the transactions index position log was created from. null when its pending log.
     #[serde(rename = "transactionIndex")]
-    pub transaction_index: Option<Uint256>,
+    pub transaction_index: Option<U256>,
     /// hash of the transactions this log was created from. null when its pending log.
     #[serde(rename = "transactionHash")]
     pub transaction_hash: Option<Data>,
@@ -46,7 +45,7 @@ pub struct Log {
     pub block_hash: Option<Data>,
     /// the block number where this log was in. null when its pending. null when its pending log.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<Uint256>,
+    pub block_number: Option<U256>,
     /// 20 Bytes - address from which this log originated.
     pub address: Address,
     /// contains the non-indexed arguments of the log.
@@ -92,33 +91,33 @@ pub struct TransactionResponse {
     pub block_hash: Option<Data>,
     /// block number where this transaction was in. null when its pending.
     #[serde(rename = "blockNumber")]
-    pub block_number: Option<Uint256>,
+    pub block_number: Option<U256>,
     /// address of the sender.
     pub from: Address,
     /// gas provided by the sender.
-    pub gas: Uint256,
+    pub gas: U256,
     /// gas price provided by the sender in Wei.
     #[serde(rename = "gasPrice")]
-    pub gas_price: Uint256,
+    pub gas_price: U256,
     /// hash of the transaction
     pub hash: Data,
     /// the data send along with the transaction.
     pub input: Data,
     /// the number of transactions made by the sender prior to this one.
-    pub nonce: Uint256,
+    pub nonce: U256,
     /// address of the receiver. null when its a contract creation transaction.
     pub to: Option<Address>,
     /// integer of the transaction's index position in the block. null when its pending.
     #[serde(rename = "transactionIndex")]
-    pub transaction_index: Option<Uint256>,
+    pub transaction_index: Option<U256>,
     /// value transferred in Wei.
-    pub value: Uint256,
+    pub value: U256,
     /// ECDSA recovery id
-    pub v: Uint256,
+    pub v: U256,
     /// ECDSA signature r
-    pub r: Uint256,
+    pub r: U256,
     /// ECDSA signature s
-    pub s: Uint256,
+    pub s: U256,
 }
 
 impl Ord for TransactionResponse {
@@ -127,7 +126,7 @@ impl Ord for TransactionResponse {
     /// number transactions without a block are greater than transactions with one and
     /// are sorted by nonce when in the same block or without a block.
     fn cmp(&self, other: &Self) -> Ordering {
-        match (self.block_number.clone(), other.block_number.clone()) {
+        match (self.block_number, other.block_number) {
             (Some(self_block), Some(other_block)) => {
                 if self_block != other_block {
                     self_block.cmp(&other_block)
@@ -185,19 +184,19 @@ pub struct TransactionRequest {
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
-pub struct UnpaddedHex(pub Uint256);
+pub struct UnpaddedHex(pub U256);
 
 impl Serialize for UnpaddedHex {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&format!("{:#x}", *self.0))
+        serializer.serialize_str(&self.0.to_hex_string())
     }
 }
 
-impl From<Uint256> for UnpaddedHex {
-    fn from(v: Uint256) -> Self {
+impl From<U256> for UnpaddedHex {
+    fn from(v: U256) -> Self {
         UnpaddedHex(v)
     }
 }
@@ -213,92 +212,92 @@ impl From<u64> for UnpaddedHex {
 pub struct Block {
     // geth does not include the author in it's RPC response.
     pub author: Option<Address>,
-    pub difficulty: Uint256,
+    pub difficulty: U256,
     #[serde(
         rename = "extraData",
         deserialize_with = "parse_possibly_empty_hex_val"
     )]
-    pub extra_data: Uint256,
+    pub extra_data: U256,
     #[serde(rename = "gasLimit")]
-    pub gas_limit: Uint256,
+    pub gas_limit: U256,
     #[serde(rename = "gasUsed")]
-    pub gas_used: Uint256,
+    pub gas_used: U256,
     /// this field will not exist until after
     /// the london hardfork
     #[serde(rename = "baseFeePerGas")]
-    pub base_fee_per_gas: Option<Uint256>,
-    pub hash: Uint256,
+    pub base_fee_per_gas: Option<U256>,
+    pub hash: U256,
     #[serde(rename = "logsBloom")]
     pub logs_bloom: Data,
     pub miner: Address,
     #[serde(rename = "mixHash")]
-    pub mix_hash: Option<Uint256>,
-    pub nonce: Uint256,
-    pub number: Uint256,
+    pub mix_hash: Option<U256>,
+    pub nonce: U256,
+    pub number: U256,
     #[serde(rename = "parentHash")]
-    pub parent_hash: Uint256,
+    pub parent_hash: U256,
     #[serde(rename = "receiptsRoot")]
-    pub receipts_root: Uint256,
+    pub receipts_root: U256,
     // Geth also does not include this field.
     #[serde(rename = "sealFields")]
-    pub seal_fields: Option<Vec<Uint256>>,
+    pub seal_fields: Option<Vec<String>>,
     #[serde(rename = "sha3Uncles")]
-    pub sha3_uncles: Uint256,
-    pub size: Uint256,
+    pub sha3_uncles: U256,
+    pub size: U256,
     #[serde(rename = "stateRoot")]
-    pub state_root: Uint256,
-    pub timestamp: Uint256,
+    pub state_root: U256,
+    pub timestamp: U256,
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: Uint256,
+    pub total_difficulty: U256,
     pub transactions: Vec<TransactionResponse>,
     #[serde(rename = "transactionsRoot")]
-    pub transactions_root: Uint256,
-    pub uncles: Vec<Uint256>,
+    pub transactions_root: U256,
+    pub uncles: Vec<U256>,
 }
 
 /// Xdai block
 #[derive(Serialize, Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct XdaiBlock {
     pub author: Address,
-    pub difficulty: Uint256,
+    pub difficulty: U256,
     #[serde(
         rename = "extraData",
         deserialize_with = "parse_possibly_empty_hex_val"
     )]
-    pub extra_data: Uint256,
+    pub extra_data: U256,
     #[serde(rename = "gasLimit")]
-    pub gas_limit: Uint256,
+    pub gas_limit: U256,
     #[serde(rename = "gasUsed")]
-    pub gas_used: Uint256,
+    pub gas_used: U256,
     /// this field will not exist until after
     /// the london hardfork
     #[serde(rename = "baseFeePerGas")]
-    pub base_fee_per_gas: Option<Uint256>,
-    pub hash: Uint256,
+    pub base_fee_per_gas: Option<U256>,
+    pub hash: U256,
     #[serde(rename = "logsBloom")]
     pub logs_bloom: Data,
     pub miner: Address,
-    pub number: Uint256,
+    pub number: U256,
     #[serde(rename = "parentHash")]
-    pub parent_hash: Uint256,
+    pub parent_hash: U256,
     #[serde(rename = "receiptsRoot")]
-    pub receipts_root: Uint256,
+    pub receipts_root: U256,
     #[serde(rename = "sealFields")]
-    pub seal_fields: Vec<Uint256>,
+    pub seal_fields: Vec<String>,
     #[serde(rename = "sha3Uncles")]
-    pub sha3_uncles: Uint256,
+    pub sha3_uncles: U256,
     pub signature: String,
-    pub size: Uint256,
+    pub size: U256,
     #[serde(rename = "stateRoot")]
-    pub state_root: Uint256,
-    pub step: Uint256,
-    pub timestamp: Uint256,
+    pub state_root: U256,
+    pub step: U256,
+    pub timestamp: U256,
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: Uint256,
+    pub total_difficulty: U256,
     pub transactions: Vec<TransactionResponse>,
     #[serde(rename = "transactionsRoot")]
-    pub transactions_root: Uint256,
-    pub uncles: Vec<Uint256>,
+    pub transactions_root: U256,
+    pub uncles: Vec<U256>,
 }
 
 /// block with more concise tx hashes instead of full transactions
@@ -306,111 +305,111 @@ pub struct XdaiBlock {
 pub struct ConciseBlock {
     // geth does not include the author in it's RPC response.
     pub author: Option<Address>,
-    pub difficulty: Uint256,
+    pub difficulty: U256,
     #[serde(
         rename = "extraData",
         deserialize_with = "parse_possibly_empty_hex_val"
     )]
-    pub extra_data: Uint256,
+    pub extra_data: U256,
     #[serde(rename = "gasLimit")]
-    pub gas_limit: Uint256,
+    pub gas_limit: U256,
     #[serde(rename = "gasUsed")]
-    pub gas_used: Uint256,
+    pub gas_used: U256,
     /// this field will not exist until after
     /// the london hardfork
     #[serde(rename = "baseFeePerGas")]
-    pub base_fee_per_gas: Option<Uint256>,
-    pub hash: Uint256,
+    pub base_fee_per_gas: Option<U256>,
+    pub hash: U256,
     #[serde(rename = "logsBloom")]
     pub logs_bloom: Data,
     pub miner: Address,
     #[serde(rename = "mixHash")]
-    pub mix_hash: Option<Uint256>,
-    pub nonce: Uint256,
-    pub number: Uint256,
+    pub mix_hash: Option<U256>,
+    pub nonce: U256,
+    pub number: U256,
     #[serde(rename = "parentHash")]
-    pub parent_hash: Uint256,
+    pub parent_hash: U256,
     #[serde(rename = "receiptsRoot")]
-    pub receipts_root: Uint256,
+    pub receipts_root: U256,
     // Geth also does not include this field.
     #[serde(rename = "sealFields")]
-    pub seal_fields: Option<Vec<Uint256>>,
+    pub seal_fields: Option<Vec<String>>,
     #[serde(rename = "sha3Uncles")]
-    pub sha3_uncles: Uint256,
-    pub size: Uint256,
+    pub sha3_uncles: U256,
+    pub size: U256,
     #[serde(rename = "stateRoot")]
-    pub state_root: Uint256,
-    pub timestamp: Uint256,
+    pub state_root: U256,
+    pub timestamp: U256,
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: Uint256,
-    pub transactions: Vec<Uint256>,
+    pub total_difficulty: U256,
+    pub transactions: Vec<U256>,
     #[serde(rename = "transactionsRoot")]
-    pub transactions_root: Uint256,
-    pub uncles: Vec<Uint256>,
+    pub transactions_root: U256,
+    pub uncles: Vec<U256>,
 }
 
 /// Xdai block with more concise tx hashes instead of full transactions
 #[derive(Serialize, Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct ConciseXdaiBlock {
     pub author: Address,
-    pub difficulty: Uint256,
+    pub difficulty: U256,
     #[serde(
         rename = "extraData",
         deserialize_with = "parse_possibly_empty_hex_val"
     )]
-    pub extra_data: Uint256,
+    pub extra_data: U256,
     #[serde(rename = "gasLimit")]
-    pub gas_limit: Uint256,
+    pub gas_limit: U256,
     #[serde(rename = "gasUsed")]
-    pub gas_used: Uint256,
+    pub gas_used: U256,
     /// this field will not exist until after
     /// the london hardfork
     #[serde(rename = "baseFeePerGas")]
-    pub base_fee_per_gas: Option<Uint256>,
-    pub hash: Uint256,
+    pub base_fee_per_gas: Option<U256>,
+    pub hash: U256,
     #[serde(rename = "logsBloom")]
     pub logs_bloom: Data,
     pub miner: Address,
-    pub number: Uint256,
+    pub number: U256,
     #[serde(rename = "parentHash")]
-    pub parent_hash: Uint256,
+    pub parent_hash: U256,
     #[serde(rename = "receiptsRoot")]
-    pub receipts_root: Uint256,
+    pub receipts_root: U256,
     #[serde(rename = "sealFields")]
-    pub seal_fields: Vec<Uint256>,
+    pub seal_fields: Vec<String>,
     #[serde(rename = "sha3Uncles")]
-    pub sha3_uncles: Uint256,
+    pub sha3_uncles: U256,
     pub signature: String,
-    pub size: Uint256,
+    pub size: U256,
     #[serde(rename = "stateRoot")]
-    pub state_root: Uint256,
-    pub step: Uint256,
-    pub timestamp: Uint256,
+    pub state_root: U256,
+    pub step: U256,
+    pub timestamp: U256,
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: Uint256,
-    pub transactions: Vec<Uint256>,
+    pub total_difficulty: U256,
+    pub transactions: Vec<U256>,
     #[serde(rename = "transactionsRoot")]
-    pub transactions_root: Uint256,
-    pub uncles: Vec<Uint256>,
+    pub transactions_root: U256,
+    pub uncles: Vec<U256>,
 }
 
 /// Used to configure send_transaction
 #[derive(Debug, Clone, PartialEq)]
 pub enum SendTxOption {
-    GasPrice(Uint256),
+    GasPrice(U256),
     GasPriceMultiplier(f32),
     GasLimitMultiplier(f32),
-    GasLimit(Uint256),
+    GasLimit(U256),
     NetworkId(u64),
-    Nonce(Uint256),
+    Nonce(U256),
 }
 
-fn parse_possibly_empty_hex_val<'de, D>(deserializer: D) -> Result<Uint256, D::Error>
+fn parse_possibly_empty_hex_val<'de, D>(deserializer: D) -> Result<U256, D::Error>
 where
     D: Deserializer<'de>,
 {
     let s: String = String::deserialize(deserializer)?;
-    match Uint256::from_str(&s) {
+    match U256::from_dec_or_hex_str(&s) {
         Ok(val) => Ok(val),
         Err(_e) => Ok(0u32.into()),
     }
@@ -430,7 +429,7 @@ mod tests {
         env_logger::init();
 
         let web3 = Web3::new("https://eth.althea.net", Duration::from_secs(5));
-        let block_number: Uint256 = 10750715u32.into();
+        let block_number: U256 = 10750715u32.into();
         let res = web3
             .eth_get_block_by_number(block_number.clone())
             .await

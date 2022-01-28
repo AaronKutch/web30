@@ -2,7 +2,7 @@ use crate::amm::WETH_CONTRACT_ADDRESS;
 use crate::{client::Web3, jsonrpc::error::Web3Error};
 use clarity::abi::Token;
 use clarity::Address;
-use clarity::{abi::encode_call, PrivateKey, Uint256};
+use clarity::{abi::encode_call, PrivateKey, U256};
 use std::time::Duration;
 use tokio::time::timeout as future_timeout;
 
@@ -10,11 +10,11 @@ use tokio::time::timeout as future_timeout;
 impl Web3 {
     pub async fn wrap_eth(
         &self,
-        amount: Uint256,
+        amount: U256,
         secret: PrivateKey,
         weth_address: Option<Address>,
         wait_timeout: Option<Duration>,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let own_address = secret.to_address();
         let sig = "deposit()";
         let tokens = [];
@@ -25,22 +25,18 @@ impl Web3 {
             .await?;
 
         if let Some(timeout) = wait_timeout {
-            future_timeout(
-                timeout,
-                self.wait_for_transaction(txid.clone(), timeout, None),
-            )
-            .await??;
+            future_timeout(timeout, self.wait_for_transaction(txid, timeout, None)).await??;
         }
         Ok(txid)
     }
 
     pub async fn unwrap_eth(
         &self,
-        amount: Uint256,
+        amount: U256,
         secret: PrivateKey,
         weth_address: Option<Address>,
         wait_timeout: Option<Duration>,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let own_address = secret.to_address();
         let sig = "withdraw(uint256)";
         let tokens = [Token::Uint(amount)];
@@ -58,11 +54,7 @@ impl Web3 {
             .await?;
 
         if let Some(timeout) = wait_timeout {
-            future_timeout(
-                timeout,
-                self.wait_for_transaction(txid.clone(), timeout, None),
-            )
-            .await??;
+            future_timeout(timeout, self.wait_for_transaction(txid, timeout, None)).await??;
         }
         Ok(txid)
     }

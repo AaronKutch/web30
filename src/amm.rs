@@ -6,7 +6,7 @@ use clarity::utils::display_uint256_as_address;
 use clarity::{
     abi::{encode_call, Token},
     constants::{TT160M1, TT24M1},
-    Address, PrivateKey, Uint256,
+    Address, PrivateKey, U256,
 };
 use num::BigUint;
 use tokio::time::timeout as future_timeout;
@@ -50,7 +50,7 @@ impl Web3 {
     /// use std::time::Duration;
     /// use std::str::FromStr;
     /// use clarity::Address;
-    /// use clarity::Uint256;
+    /// use clarity::U256;
     /// use web30::amm::*;
     /// use web30::client::Web3;
     /// let web3 = Web3::new("https://eth.althea.net", Duration::from_secs(5));
@@ -59,7 +59,7 @@ impl Web3 {
     ///     *WETH_CONTRACT_ADDRESS,
     ///     *DAI_CONTRACT_ADDRESS,
     ///     Some(500u16.into()),
-    ///     Uint256::from_str("1000000000000000000"), // 1 WETH
+    ///     U256::from_str("1000000000000000000"), // 1 WETH
     ///     Some(uniswap_sqrt_price(1u8.into(), 2023u16.into())), // Sample 1 Eth ->  2k Dai swap rate
     ///     Some(*UNISWAP_QUOTER_ADDRESS),
     /// );
@@ -68,13 +68,13 @@ impl Web3 {
     pub async fn get_uniswap_price(
         &self,
         caller_address: Address,
-        token_in: Address,                             // The token held
-        token_out: Address,                            // The desired token
-        fee_uint24: Option<Uint256>,                   // Actually a uint24 on the callee side
-        amount: Uint256,                               // The amount of tokens offered up
-        sqrt_price_limit_x96_uint160: Option<Uint256>, // Actually a uint160 on the callee side
+        token_in: Address,                          // The token held
+        token_out: Address,                         // The desired token
+        fee_uint24: Option<U256>,                   // Actually a uint24 on the callee side
+        amount: U256,                               // The amount of tokens offered up
+        sqrt_price_limit_x96_uint160: Option<U256>, // Actually a uint160 on the callee side
         uniswap_quoter: Option<Address>, // The default quoter will be used if none is provided
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let quoter = uniswap_quoter.unwrap_or(*UNISWAP_QUOTER_ADDRESS);
 
         let fee_uint24 = fee_uint24.unwrap_or_else(|| 500u32.into());
@@ -102,21 +102,22 @@ impl Web3 {
 
         debug!("tokens is  {:?}", tokens);
         let payload = encode_call(
-            "quoteExactInputSingle(address,address,uint24,uint256,uint160)",
+            "quoteExactInputSingle(address,address,uint24,U256,uint160)",
             &tokens,
         )?;
         let result = self
             .simulate_transaction(quoter, 0u8.into(), payload, caller_address, None)
             .await?;
         debug!("result is {:?}", result);
-        Ok(Uint256::from_bytes_be(match result.get(0..32) {
+        Ok(U256::from_bytes_be(match result.get(0..32) {
             Some(val) => val,
             None => {
                 return Err(Web3Error::ContractCallError(
                     "Bad response from swap price".to_string(),
                 ))
             }
-        }))
+        })
+        .unwrap())
     }
 
     /// Performs an exact input single pool swap via Uniswap v3, exchanging `amount` of `token_in` for `token_out`
@@ -160,18 +161,18 @@ impl Web3 {
     #[allow(clippy::too_many_arguments)]
     pub async fn swap_uniswap(
         &self,
-        eth_private_key: PrivateKey,     // The address swapping tokens
-        token_in: Address,               // The token held
-        token_out: Address,              // The desired token
-        fee_uint24: Option<Uint256>,     // Actually a uint24 on the callee side
-        amount: Uint256,                 // The amount of tokens offered up
-        deadline: Option<Uint256>,       // A deadline by which the swap must happen
-        amount_out_min: Option<Uint256>, // The minimum output tokens to receive in a swap
-        sqrt_price_limit_x96_uint160: Option<Uint256>, // Actually a uint160 on the callee side
+        eth_private_key: PrivateKey,  // The address swapping tokens
+        token_in: Address,            // The token held
+        token_out: Address,           // The desired token
+        fee_uint24: Option<U256>,     // Actually a uint24 on the callee side
+        amount: U256,                 // The amount of tokens offered up
+        deadline: Option<U256>,       // A deadline by which the swap must happen
+        amount_out_min: Option<U256>, // The minimum output tokens to receive in a swap
+        sqrt_price_limit_x96_uint160: Option<U256>, // Actually a uint160 on the callee side
         uniswap_router: Option<Address>, // The default router will be used if None is provided
         options: Option<Vec<SendTxOption>>, // Options for send_transaction
         wait_timeout: Option<Duration>,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let fee_uint24 = fee_uint24.unwrap_or_else(|| 3000u16.into());
         if bad_fee(&fee_uint24) {
             return Err(Web3Error::BadInput(
@@ -191,7 +192,9 @@ impl Web3 {
         let router = uniswap_router.unwrap_or(*UNISWAP_ROUTER_ADDRESS);
         let deadline = match deadline {
             // Default to latest block + 10 minutes
-            None => self.eth_get_latest_block().await.unwrap().timestamp + (10u64 * 60u64).into(),
+            None => {
+                self.eth_get_latest_block().await.unwrap().timestamp + U256::from(10u64 * 60u64)
+            }
             Some(val) => val,
         };
         let amount_out_min = amount_out_min.unwrap_or_default();
@@ -200,9 +203,9 @@ impl Web3 {
         //    address tokenOut;
         //    uint24 fee;
         //    address recipient;
-        //    uint256 deadline;
-        //    uint256 amountIn;
-        //    uint256 amountOutMinimum;
+        //    U256 deadline;
+        //    U256 amountIn;
+        //    U256 amountOutMinimum;
         //    uint160 sqrtPriceLimitX96;
         //}
         let tokens: Vec<Token> = vec![
@@ -249,7 +252,7 @@ impl Web3 {
                 )
                 .await?;
             if wait_timeout.is_none() {
-                options.push(SendTxOption::Nonce(nonce + 1u8.into()));
+                options.push(SendTxOption::Nonce(nonce + U256::one()));
             }
         }
 
@@ -266,14 +269,10 @@ impl Web3 {
             .await?;
         debug!(
             "txid for uniswap swap is {}",
-            display_uint256_as_address(txid.clone())
+            display_uint256_as_address(txid)
         );
         if let Some(timeout) = wait_timeout {
-            future_timeout(
-                timeout,
-                self.wait_for_transaction(txid.clone(), timeout, None),
-            )
-            .await??;
+            future_timeout(timeout, self.wait_for_transaction(txid, timeout, None)).await??;
         }
 
         Ok(txid)
@@ -323,17 +322,17 @@ impl Web3 {
     #[allow(clippy::too_many_arguments)]
     pub async fn swap_uniswap_eth_in(
         &self,
-        eth_private_key: PrivateKey,     // the address swapping tokens
-        token_out: Address,              // the desired token
-        fee_uint24: Option<Uint256>,     // actually a uint24 on the callee side
-        amount: Uint256,                 // the amount of tokens offered up
-        deadline: Option<Uint256>,       // a deadline by which the swap must happen
-        amount_out_min: Option<Uint256>, // the minimum output tokens to receive in a swap
-        sqrt_price_limit_x96_uint160: Option<Uint256>, // actually a uint160 on the callee side
+        eth_private_key: PrivateKey,  // the address swapping tokens
+        token_out: Address,           // the desired token
+        fee_uint24: Option<U256>,     // actually a uint24 on the callee side
+        amount: U256,                 // the amount of tokens offered up
+        deadline: Option<U256>,       // a deadline by which the swap must happen
+        amount_out_min: Option<U256>, // the minimum output tokens to receive in a swap
+        sqrt_price_limit_x96_uint160: Option<U256>, // actually a uint160 on the callee side
         uniswap_router: Option<Address>, // the default router will be used if none is provided
         options: Option<Vec<SendTxOption>>, // options for send_transaction
         wait_timeout: Option<Duration>,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let token_in = *WETH_CONTRACT_ADDRESS; // Uniswap requires WETH to be one of the swap tokens for ETH swaps
         let fee_uint24 = fee_uint24.unwrap_or_else(|| 3000u16.into());
         if bad_fee(&fee_uint24) {
@@ -354,7 +353,9 @@ impl Web3 {
         let router = uniswap_router.unwrap_or(*UNISWAP_ROUTER_ADDRESS);
         let deadline = match deadline {
             // Default to latest block + 10 minutes
-            None => self.eth_get_latest_block().await.unwrap().timestamp + (10u64 * 60u64).into(),
+            None => {
+                self.eth_get_latest_block().await.unwrap().timestamp + U256::from(10u64 * 60u64)
+            }
             Some(val) => val,
         };
         let amount_out_min = amount_out_min.unwrap_or_default();
@@ -374,7 +375,7 @@ impl Web3 {
             fee_uint24.into(),
             eth_address.into(),
             deadline.into(),
-            amount.clone().into(),
+            amount.into(),
             amount_out_min.into(),
             sqrt_price_limit_x96_uint160.into(),
         ];
@@ -399,7 +400,7 @@ impl Web3 {
             .send_transaction(
                 router,
                 payload,
-                amount.clone(),
+                amount,
                 eth_address,
                 eth_private_key,
                 options,
@@ -407,14 +408,10 @@ impl Web3 {
             .await?;
         debug!(
             "txid for uniswap swap is {}",
-            display_uint256_as_address(txid.clone())
+            display_uint256_as_address(txid)
         );
         if let Some(timeout) = wait_timeout {
-            future_timeout(
-                timeout,
-                self.wait_for_transaction(txid.clone(), timeout, None),
-            )
-            .await??;
+            future_timeout(timeout, self.wait_for_transaction(txid, timeout, None)).await??;
         }
         Ok(txid)
     }
@@ -433,12 +430,12 @@ fn options_contains_glm(options: &[SendTxOption]) -> bool {
 }
 
 // Checks that the input fee value is within the limits of uint24
-fn bad_fee(fee: &Uint256) -> bool {
+fn bad_fee(fee: &U256) -> bool {
     *fee > *TT24M1
 }
 
 // Checks that the input sqrt_price_limit value is within the limits of uint160
-fn bad_sqrt_price_limit(sqrt_price_limit: &Uint256) -> bool {
+fn bad_sqrt_price_limit(sqrt_price_limit: &U256) -> bool {
     *sqrt_price_limit > *TT160M1
 }
 
@@ -448,18 +445,25 @@ fn bad_sqrt_price_limit(sqrt_price_limit: &Uint256) -> bool {
 /// Attempts to encode the result as a Q64.96 (a rational number with 64 bits of
 /// numerator precision, 96 bits of denominator precision) by copying the
 /// javascript implementation
-pub fn uniswap_sqrt_price(amount_1: Uint256, amount_0: Uint256) -> Uint256 {
+pub fn uniswap_sqrt_price(amount_1: U256, amount_0: U256) -> U256 {
     // Uniswap's javascript implementation with arguments amount1 and amount0
     //   const numerator = JSBI.leftShift(JSBI.BigInt(amount1), JSBI.BigInt(192))
     //   const denominator = JSBI.BigInt(amount0)
     //   const ratioX192 = JSBI.divide(numerator, denominator)
     //   return sqrt(ratioX192)
 
-    let numerator: BigUint = amount_1.0 << 192;
-    let denominator: BigUint = amount_0.0;
+    let numerator: BigUint = BigUint::from_slice(&amount_1.to_u32_array()) << 192;
+    let denominator: BigUint = BigUint::from_slice(&amount_0.to_u32_array());
     let ratio_x192 = numerator / denominator;
-    Uint256(BigUint::sqrt(&ratio_x192))
+    let u64_digits = BigUint::sqrt(&ratio_x192).to_u64_digits();
+    let mut array = [0u64; 4];
+    for (i, digit) in u64_digits.into_iter().enumerate() {
+        // panics if the result does not fit in 256 bits
+        *array.get_mut(i).unwrap() = digit;
+    }
+    U256::from_u64_array(array)
 }
+
 #[ignore]
 #[tokio::test]
 async fn get_uniswap_price_test() {
@@ -470,9 +474,9 @@ async fn get_uniswap_price_test() {
     let web3 = Web3::new("https://eth.althea.net", Duration::from_secs(5));
     let caller_address =
         Address::parse_and_validate("0x5A0b54D5dc17e0AadC383d2db43B0a0D3E029c4c").unwrap();
-    let amount = Uint256::from(1_000_000_000_000_000_000u64);
-    let fee = Uint256::from(500u16);
-    let sqrt_price_limit_x96_uint160 = Uint256::from(0u16);
+    let amount = U256::from(1_000_000_000_000_000_000u64);
+    let fee = U256::from(500u16);
+    let sqrt_price_limit_x96_uint160 = U256::from(0u16);
 
     let price = web3
         .get_uniswap_price(
@@ -530,14 +534,14 @@ async fn swap_hardhat_test() {
     Builder::from_env(Env::default().default_filter_or("warn")).init(); // Change to debug for logs
 
     let web3 = Web3::new("http://localhost:8545", Duration::from_secs(300));
-    let amount = Uint256::from(1000000000000000000u64); // 1 weth
-    let amount_out_min: Uint256 = 0u8.into();
-    let fee = Uint256::from(500u16);
+    let amount = U256::from(1000000000000000000u64); // 1 weth
+    let amount_out_min: U256 = 0u8.into();
+    let fee = U256::from(500u16);
 
-    let sqrt_price_limit_x96_uint160: Uint256 = 0u8.into();
+    let sqrt_price_limit_x96_uint160: U256 = 0u8.into();
 
     let block = web3.eth_get_latest_block().await.unwrap();
-    let deadline = block.timestamp + (10u32 * 60u32 * 100000u32).into();
+    let deadline = block.timestamp + U256::from(10u32 * 60u32 * 100000u32);
 
     let success = web3
         .wrap_eth(amount.clone(), miner_private_key, None, None)
@@ -652,14 +656,14 @@ async fn swap_hardhat_eth_in_test() {
     Builder::from_env(Env::default().default_filter_or("warn")).init(); // Change to debug for logs
 
     let web3 = Web3::new("http://localhost:8545", Duration::from_secs(300));
-    let amount = Uint256::from(1000000000000000000u64); // 1 weth
-    let amount_out_min: Uint256 = 0u8.into();
-    let fee = Uint256::from(500u16);
+    let amount = U256::from(1000000000000000000u64); // 1 weth
+    let amount_out_min: U256 = 0u8.into();
+    let fee = U256::from(500u16);
 
-    let sqrt_price_limit_x96_uint160: Uint256 = 0u8.into();
+    let sqrt_price_limit_x96_uint160: U256 = 0u8.into();
 
     let block = web3.eth_get_latest_block().await.unwrap();
-    let deadline = block.timestamp + (10u32 * 60u32 * 100000u32).into();
+    let deadline = block.timestamp + U256::from(10u32 * 60u32 * 100000u32);
 
     let initial_eth = web3.eth_get_balance(miner_address).await.unwrap();
     let initial_weth = web3

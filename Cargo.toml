@@ -8,18 +8,18 @@ repository = "https://github.com/onomyprotocol/web30.git"
 version = "0.18.1"
 
 [dependencies]
-clarity = "0.5"
+clarity = { git = "https://github.com/AaronKutch/clarity", branch = "aaron" }
 futures = "0.3"
-hyper = {version = "0.14", features = ["full"]}
+hyper = { version = "0.14", features = ["full"] }
 hyper-tls = "0.5.0"
 lazy_static = "1.4"
 log = "0.4"
 num = "0.4"
-num256 = "0.3"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-tokio = {version = "1.4", features = ["macros", "time"]}
+tokio = { version = "1.4", features = ["macros", "time"] }
+u64_array_bigints = "0.1"
 
 [dev-dependencies]
 env_logger = "0.9"

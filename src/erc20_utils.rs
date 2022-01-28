@@ -2,8 +2,7 @@
 use crate::jsonrpc::error::Web3Error;
 use crate::{client::Web3, types::SendTxOption};
 use clarity::{abi::encode_call, PrivateKey as EthPrivateKey};
-use clarity::{Address, Uint256};
-use num::Bounded;
+use clarity::{Address, U256};
 use std::time::Duration;
 use tokio::time::timeout as future_timeout;
 
@@ -29,18 +28,19 @@ impl Web3 {
             .simulate_transaction(erc20, 0u8.into(), payload, own_address, None)
             .await?;
 
-        let allowance = Uint256::from_bytes_be(match allowance.get(0..32) {
+        let allowance = U256::from_bytes_be(match allowance.get(0..32) {
             Some(val) => val,
             None => {
                 return Err(Web3Error::ContractCallError(
                     "erc20 allowance(address, address) failed".to_string(),
                 ))
             }
-        });
+        })
+        .unwrap();
 
-        // Check if the allowance remaining is greater than half of a Uint256- it's as good
+        // Check if the allowance remaining is greater than half of a U256- it's as good
         // a test as any.
-        Ok(allowance > (Uint256::max_value() / 2u32.into()))
+        Ok(allowance > (U256::max_value() >> 1))
     }
 
     /// Approves a given contract to spend erc20 funds from the given address from the erc20 contract provided.
@@ -59,11 +59,11 @@ impl Web3 {
         target_contract: Address,
         timeout: Option<Duration>,
         options: Vec<SendTxOption>,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let own_address = eth_private_key.to_address();
         let payload = encode_call(
             "approve(address,uint256)",
-            &[target_contract.into(), Uint256::max_value().into()],
+            &[target_contract.into(), U256::max_value().into()],
         )?;
 
         let txid = self
@@ -79,11 +79,7 @@ impl Web3 {
 
         // wait for transaction to enter the chain if the user has requested it
         if let Some(timeout) = timeout {
-            future_timeout(
-                timeout,
-                self.wait_for_transaction(txid.clone(), timeout, None),
-            )
-            .await??;
+            future_timeout(timeout, self.wait_for_transaction(txid, timeout, None)).await??;
         }
 
         Ok(txid)
@@ -100,13 +96,13 @@ impl Web3 {
     /// on unintended chains potentially to their benefit
     pub async fn erc20_send(
         &self,
-        amount: Uint256,
+        amount: U256,
         recipient: Address,
         erc20: Address,
         sender_private_key: EthPrivateKey,
         wait_timeout: Option<Duration>,
         options: Vec<SendTxOption>,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let sender_address = sender_private_key.to_address();
 
         // if the user sets a gas limit we should honor it, if they don't we
@@ -128,7 +124,7 @@ impl Web3 {
                 erc20,
                 encode_call(
                     "transfer(address,uint256)",
-                    &[recipient.into(), amount.clone().into()],
+                    &[recipient.into(), amount.into()],
                 )?,
                 0u32.into(),
                 sender_address,
@@ -138,11 +134,7 @@ impl Web3 {
             .await?;
 
         if let Some(timeout) = wait_timeout {
-            future_timeout(
-                timeout,
-                self.wait_for_transaction(tx_hash.clone(), timeout, None),
-            )
-            .await??;
+            future_timeout(timeout, self.wait_for_transaction(tx_hash, timeout, None)).await??;
         }
 
         Ok(tx_hash)
@@ -152,20 +144,21 @@ impl Web3 {
         &self,
         erc20: Address,
         target_address: Address,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let payload = encode_call("balanceOf(address)", &[target_address.into()])?;
         let balance = self
             .simulate_transaction(erc20, 0u8.into(), payload, target_address, None)
             .await?;
 
-        Ok(Uint256::from_bytes_be(match balance.get(0..32) {
+        Ok(U256::from_bytes_be(match balance.get(0..32) {
             Some(val) => val,
             None => {
                 return Err(Web3Error::ContractCallError(
                     "Bad response from ERC20 balance".to_string(),
                 ))
             }
-        }))
+        })
+        .unwrap())
     }
 
     pub async fn get_erc20_name(
@@ -220,40 +213,42 @@ impl Web3 {
         &self,
         erc20: Address,
         caller_address: Address,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let payload = encode_call("decimals()", &[])?;
         let decimals = self
             .simulate_transaction(erc20, 0u8.into(), payload, caller_address, None)
             .await?;
 
-        Ok(Uint256::from_bytes_be(match decimals.get(0..32) {
+        Ok(U256::from_bytes_be(match decimals.get(0..32) {
             Some(val) => val,
             None => {
                 return Err(Web3Error::ContractCallError(
                     "Bad response from ERC20 decimals".to_string(),
                 ))
             }
-        }))
+        })
+        .unwrap())
     }
 
     pub async fn get_erc20_supply(
         &self,
         erc20: Address,
         caller_address: Address,
-    ) -> Result<Uint256, Web3Error> {
+    ) -> Result<U256, Web3Error> {
         let payload = encode_call("totalSupply()", &[])?;
         let decimals = self
             .simulate_transaction(erc20, 0u8.into(), payload, caller_address, None)
             .await?;
 
-        Ok(Uint256::from_bytes_be(match decimals.get(0..32) {
+        Ok(U256::from_bytes_be(match decimals.get(0..32) {
             Some(val) => val,
             None => {
                 return Err(Web3Error::ContractCallError(
                     "Bad response from ERC20 Total Supply".to_string(),
                 ))
             }
-        }))
+        })
+        .unwrap())
     }
 }
 
@@ -274,7 +269,7 @@ async fn test_erc20_metadata() {
             .unwrap(),
         18u8.into()
     );
-    let num: Uint256 = 1000u32.into();
+    let num: U256 = 1000u32.into();
     assert!(
         web3.get_erc20_supply(dai_address, caller_address)
             .await

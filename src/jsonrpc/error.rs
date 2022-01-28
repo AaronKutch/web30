@@ -1,5 +1,5 @@
 use clarity::Error as ClarityError;
-use clarity::Uint256;
+use clarity::U256;
 use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -13,9 +13,9 @@ pub enum Web3Error {
     BadResponse(String),
     JsonRpcError(hyper::Error),
     InsufficientGas {
-        balance: Uint256,
-        base_gas: Uint256,
-        gas_required: Uint256,
+        balance: U256,
+        base_gas: U256,
+        gas_required: U256,
     },
     BadInput(String),
     EventNotFound(String),
@@ -80,7 +80,7 @@ impl Display for Web3Error {
                 gas_required,
             } => {
                 write!(f, "Block has base_fee_per_gas {} and transaction requires {} gas. Your balance of {} < {}. Transaction impossible",
-            base_gas, gas_required, balance, base_gas.clone() * gas_required.clone())
+            base_gas, gas_required, balance, base_gas * gas_required)
             }
             Web3Error::ContractCallError(val) => {
                 write!(f, "Error performing Ethereum contract call {}", val)

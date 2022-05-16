@@ -6,7 +6,7 @@
 //!
 use crate::jsonrpc::client::HttpClient;
 use crate::jsonrpc::error::Web3Error;
-use crate::types::{Block, Log, NewFilter, SyncingStatus, TransactionRequest, TransactionResponse};
+use crate::types::{Block, Log, NewFilter, TransactionRequest, TransactionResponse};
 use crate::types::{ConciseBlock, ConciseXdaiBlock, Data, SendTxOption, XdaiBlock};
 use clarity::utils::bytes_to_hex_str;
 use clarity::{u256, Uint256};
@@ -170,14 +170,24 @@ impl Web3 {
 
     /// Returns a bool indicating whether our eth node is currently syncing or not
     pub async fn eth_syncing(&self) -> Result<bool, Web3Error> {
-        let res: SyncingStatus = self
-            .jsonrpc_client
-            .request_method("eth_syncing", Vec::<String>::new(), self.timeout)
-            .await?;
-        match res {
-            SyncingStatus::Syncing { .. } => Ok(true),
-            SyncingStatus::NotSyncing(..) => Ok(false),
+        // FIXME awful hack because "eth_syncing" is not supported
+        for _ in 0..400 {
+            // this will return a syncing error if not synced
+            let res: Result<Uint256, _> = self
+                .jsonrpc_client
+                .request_method(
+                    "eth_getTransactionCount",
+                    vec![Address::default().to_string(), "latest".to_string()],
+                    self.timeout,
+                )
+                .await;
+            if res.is_ok() {
+                return Ok(false);
+            }
+            // this crate does not have the runtime, I have to use blocking sleep
+            std::thread::sleep(Duration::from_millis(250));
         }
+        panic!("did not sync in 100 seconds");
     }
 
     pub async fn eth_send_transaction(

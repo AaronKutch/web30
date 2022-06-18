@@ -232,6 +232,7 @@ pub struct Block {
     pub miner: Address,
     #[serde(rename = "mixHash")]
     pub mix_hash: Option<Uint256>,
+    #[serde(default)]
     pub nonce: Uint256,
     pub number: Uint256,
     #[serde(rename = "parentHash")]
@@ -325,6 +326,7 @@ pub struct ConciseBlock {
     pub miner: Address,
     #[serde(rename = "mixHash")]
     pub mix_hash: Option<Uint256>,
+    #[serde(default)]
     pub nonce: Uint256,
     pub number: Uint256,
     #[serde(rename = "parentHash")]

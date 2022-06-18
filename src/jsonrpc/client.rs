@@ -78,6 +78,7 @@ impl HttpClient {
             .uri(&self.url)
             .body(payload.into())
             .expect("Expected json body");
+        dbg!(&req);
 
         // race between the Timeout and the Request - with slight bias towards the request itself
         let result: Result<Bytes, Web3Error> = tokio::select! {
@@ -86,8 +87,19 @@ impl HttpClient {
             bytes = self.aggregate_bytes(req) => Ok(bytes?),
             _ = time::sleep(timeout) => Err(Web3Error::BadResponse("Request Timed Out".into()))
         };
+        //dbg!(&result);
 
-        let response: JsonResponse<R> = serde_json::from_slice(&result?)?;
+        let result = result.unwrap();
+        //let response: JsonResponse<R> = serde_json::from_slice(&result?)?;
+        let response: JsonResponse<R> = match serde_json::from_slice(&result) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("LKJ\n{}LKJ\n", String::from_utf8(result.to_vec()).unwrap());
+                Err(e)?; panic!()}
+        };
+
+        
+        //dbg!(response);
         trace!("got web3 response {:#?}", response);
 
         match response.data.into_result() {

@@ -19,6 +19,10 @@ serde_derive = "1.0"
 serde_json = "1.0"
 tokio = { version = "1.17", features = ["macros", "time"] }
 u64_array_bigints = { version = "0.3", default-features = false, features = ["serde_support"] }
+#u64_array_bigints = { git = "https://github.com/AaronKutch/u64_array_bigints", rev = "107ba324b6c48cad3b186f1e1ce8b919308248a6", default-features = false, features = ["serde_support"] }
 
 [dev-dependencies]
 env_logger = "0.9"
+
+[patch.crates-io]
+u64_array_bigints = { git = "https://github.com/AaronKutch/u64_array_bigints.git", rev = "107ba324b6c48cad3b186f1e1ce8b919308248a6" }

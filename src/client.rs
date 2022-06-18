@@ -760,7 +760,7 @@ impl Web3 {
                     }
                 }
                 // errors should not exit early
-                (Err(_), _) => {}
+                (Err(e), _) => {dbg!(e);}
             }
         }
         Err(Web3Error::NoBlockProduced { time: timeout })
